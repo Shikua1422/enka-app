@@ -7,8 +7,15 @@ import { doc, getDoc } from "firebase/firestore";
 export default function ScanPage() {
   const [result, setResult] = useState("");
   const [userData, setUserData] = useState<any>(null);
+  const [history, setHistory] = useState<any[]>([]);
 
   useEffect(() => {
+    const savedHistory = localStorage.getItem("exchangeHistory");
+
+    if (savedHistory) {
+      setHistory(JSON.parse(savedHistory));
+    }
+
     async function startScanner() {
       const { Html5QrcodeScanner } = await import("html5-qrcode");
 
@@ -30,7 +37,35 @@ export default function ScanPage() {
           const docSnap = await getDoc(docRef);
 
           if (docSnap.exists()) {
-            setUserData(docSnap.data());
+            const data = docSnap.data();
+
+            setUserData(data);
+
+            const newHistoryItem = {
+              id: decodedText,
+              name: data.name,
+              bio: data.bio,
+              iconBase64: data.iconBase64,
+            };
+
+            const existingHistory = JSON.parse(
+              localStorage.getItem("exchangeHistory") || "[]"
+            );
+
+            const alreadyExists = existingHistory.some(
+              (item: any) => item.id === decodedText
+            );
+
+            if (!alreadyExists) {
+              const updatedHistory = [newHistoryItem, ...existingHistory];
+
+              localStorage.setItem(
+                "exchangeHistory",
+                JSON.stringify(updatedHistory)
+              );
+
+              setHistory(updatedHistory);
+            }
           }
         },
         () => {}
@@ -90,6 +125,51 @@ export default function ScanPage() {
           </div>
         </div>
       )}
+
+      <div style={{ marginTop: "50px" }}>
+        <h2>交換履歴</h2>
+
+        {history.length === 0 && <p>まだ交換履歴がありません</p>}
+
+        {history.map((item) => (
+          <div
+            key={item.id}
+            style={{
+              border: "1px solid #ccc",
+              padding: "10px",
+              marginBottom: "10px",
+              width: "320px",
+              borderRadius: "10px",
+            }}
+          >
+            {item.iconBase64 && (
+              <img
+                src={item.iconBase64}
+                alt="icon"
+                style={{
+                  width: "70px",
+                  height: "70px",
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                  marginBottom: "10px",
+                }}
+              />
+            )}
+
+            <p>名前: {item.name}</p>
+
+            <div
+              style={{
+                whiteSpace: "pre-wrap",
+                border: "1px solid #ccc",
+                padding: "10px",
+              }}
+            >
+              {item.bio}
+            </div>
+          </div>
+        ))}
+      </div>
     </main>
   );
 }
