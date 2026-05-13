@@ -1,33 +1,43 @@
 "use client";
 
-import { Html5QrcodeScanner } from "html5-qrcode";
 import { useEffect, useState } from "react";
+import { db } from "../../firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 export default function ScanPage() {
   const [result, setResult] = useState("");
+  const [userData, setUserData] = useState<any>(null);
 
   useEffect(() => {
-    const scanner = new Html5QrcodeScanner(
-      "reader",
-      {
-        fps: 10,
-        qrbox: 250,
-      },
-      false
-    );
+    async function startScanner() {
+      const { Html5QrcodeScanner } = await import("html5-qrcode");
 
-    scanner.render(
-      (decodedText) => {
-        setResult(decodedText);
-      },
-      (error) => {
-        // 読み取り失敗時
-      }
-    );
+      const scanner = new Html5QrcodeScanner(
+        "reader",
+        {
+          fps: 10,
+          qrbox: 250,
+        },
+        false
+      );
 
-    return () => {
-      scanner.clear().catch(() => {});
-    };
+      scanner.render(
+        async (decodedText) => {
+          setResult(decodedText);
+
+          const docRef = doc(db, "users", decodedText);
+
+          const docSnap = await getDoc(docRef);
+
+          if (docSnap.exists()) {
+            setUserData(docSnap.data());
+          }
+        },
+        () => {}
+      );
+    }
+
+    startScanner();
   }, []);
 
   return (
@@ -38,6 +48,15 @@ export default function ScanPage() {
 
       <p>読み取り結果:</p>
       <p>{result}</p>
+
+      {userData && (
+        <div style={{ marginTop: "30px" }}>
+          <h2>相手プロフィール</h2>
+
+          <p>名前: {userData.name}</p>
+          <p>推し: {userData.oshi}</p>
+        </div>
+      )}
     </main>
   );
 }

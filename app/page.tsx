@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { db } from "../firebase";
-import { collection, addDoc } from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 import { QRCodeCanvas } from "qrcode.react";
 
 export default function Home() {
@@ -10,39 +10,25 @@ export default function Home() {
   const [oshi, setOshi] = useState("");
   const [userId, setUserId] = useState("");
 
-  useEffect(() => {
-    const savedName = localStorage.getItem("name");
-    const savedOshi = localStorage.getItem("oshi");
-
-    if (savedName) {
-      setName(savedName);
-    }
-
-    if (savedOshi) {
-      setOshi(savedOshi);
-    }
-  }, []);
-
   const handleSave = async () => {
-    try {
-      // localStorage保存
-      localStorage.setItem("name", name);
-      localStorage.setItem("oshi", oshi);
+    const id = crypto.randomUUID();
 
-      // Firebase保存
-      const docRef = await addDoc(collection(db, "users"), {
-  name: name,
-  oshi: oshi,
-  createdAt: new Date(),
-});
+    await setDoc(doc(db, "users", id), {
+      name: name,
+      oshi: oshi,
+      createdAt: new Date(),
+    });
 
-setUserId(docRef.id);
+    setUserId(id);
 
-      alert("Firebaseに保存しました！");
-    } catch (error) {
-      console.error(error);
-      alert("保存に失敗しました");
-    }
+    localStorage.setItem(
+      "profile",
+      JSON.stringify({
+        id,
+        name,
+        oshi,
+      })
+    );
   };
 
   return (
@@ -50,31 +36,31 @@ setUserId(docRef.id);
       <h1>エンカ交換アプリ</h1>
 
       <div style={{ marginTop: "20px" }}>
-        <p>名前</p>
         <input
           type="text"
+          placeholder="名前"
           value={name}
           onChange={(e) => setName(e.target.value)}
           style={{
-            padding: "8px",
+            display: "block",
+            marginBottom: "10px",
+            padding: "10px",
             width: "300px",
-            marginBottom: "20px",
           }}
         />
 
-        <p>推し</p>
         <input
           type="text"
+          placeholder="推し"
           value={oshi}
           onChange={(e) => setOshi(e.target.value)}
           style={{
-            padding: "8px",
+            display: "block",
+            marginBottom: "10px",
+            padding: "10px",
             width: "300px",
-            marginBottom: "20px",
           }}
         />
-
-        <br />
 
         <button
           onClick={handleSave}
