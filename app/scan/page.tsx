@@ -50,11 +50,44 @@ export default function ScanPage() {
       <p>{result}</p>
 
       {userData && (
-        <div style={{ marginTop: "30px" }}>
+        <div
+          style={{
+            marginTop: "30px",
+            border: "1px solid #ccc",
+            padding: "20px",
+            width: "320px",
+            borderRadius: "10px",
+          }}
+        >
           <h2>相手プロフィール</h2>
 
+          {userData.iconBase64 && (
+            <img
+              src={userData.iconBase64}
+              alt="icon"
+              style={{
+                width: "100px",
+                height: "100px",
+                borderRadius: "50%",
+                objectFit: "cover",
+                marginBottom: "10px",
+              }}
+            />
+          )}
+
           <p>名前: {userData.name}</p>
-          <p>推し: {userData.oshi}</p>
+
+          <p>プロフィール:</p>
+
+          <div
+            style={{
+              whiteSpace: "pre-wrap",
+              border: "1px solid #ccc",
+              padding: "10px",
+            }}
+          >
+            {userData.bio}
+          </div>
         </div>
       )}
     </main>

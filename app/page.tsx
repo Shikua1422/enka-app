@@ -7,7 +7,8 @@ import { QRCodeCanvas } from "qrcode.react";
 
 export default function Home() {
   const [name, setName] = useState("");
-  const [oshi, setOshi] = useState("");
+  const [bio, setBio] = useState("");
+  const [iconBase64, setIconBase64] = useState("");
   const [userId, setUserId] = useState("");
 
   const handleSave = async () => {
@@ -15,7 +16,8 @@ export default function Home() {
 
     await setDoc(doc(db, "users", id), {
       name: name,
-      oshi: oshi,
+      bio: bio,
+      iconBase64: iconBase64,
       createdAt: new Date(),
     });
 
@@ -26,7 +28,8 @@ export default function Home() {
       JSON.stringify({
         id,
         name,
-        oshi,
+        bio,
+        iconBase64,
       })
     );
   };
@@ -50,15 +53,51 @@ export default function Home() {
         />
 
         <input
-          type="text"
-          placeholder="推し"
-          value={oshi}
-          onChange={(e) => setOshi(e.target.value)}
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+
+            if (!file) return;
+
+            const reader = new FileReader();
+
+            reader.onloadend = () => {
+              setIconBase64(reader.result as string);
+            };
+
+            reader.readAsDataURL(file);
+          }}
+          style={{
+            display: "block",
+            marginBottom: "10px",
+          }}
+        />
+
+        {iconBase64 && (
+          <img
+            src={iconBase64}
+            alt="icon"
+            style={{
+              width: "100px",
+              height: "100px",
+              borderRadius: "50%",
+              objectFit: "cover",
+              marginBottom: "10px",
+            }}
+          />
+        )}
+
+        <textarea
+          placeholder="自由記述欄"
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
           style={{
             display: "block",
             marginBottom: "10px",
             padding: "10px",
             width: "300px",
+            height: "120px",
           }}
         />
 
