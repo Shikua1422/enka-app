@@ -38,34 +38,35 @@ export default function ProfilePage() {
 
   // 💾 保存（画像アップロード込み）
   const handleSave = async () => {
-    const id = userId || crypto.randomUUID();
+    try {
+        const id = userId || crypto.randomUUID();
 
-    let uploadedUrl = iconUrl;
+        let uploadedUrl = iconUrl;
 
-    // 🔥 画像が変更された時だけアップロード
-    if (file) {
-      const storageRef = ref(storage, `icons/${id}`);
-      await uploadBytes(storageRef, file);
-      uploadedUrl = await getDownloadURL(storageRef);
+        if (file) {
+        const storageRef = ref(storage, `icons/${id}`);
+        await uploadBytes(storageRef, file);
+        uploadedUrl = await getDownloadURL(storageRef);
+        }
+
+        const data = {
+        name,
+        bio,
+        iconUrl: uploadedUrl,
+        updatedAt: new Date(),
+        };
+
+        await setDoc(doc(db, "users", id), data);
+
+        setUserId(id);
+
+        localStorage.setItem("profile", JSON.stringify({ id, ...data }));
+
+        alert("保存成功");
+    } catch (e) {
+        console.error("保存エラー:", e);
+        alert("保存に失敗しました（コンソール見て）");
     }
-
-    const data = {
-      name,
-      bio,
-      iconUrl: uploadedUrl,
-      updatedAt: new Date(),
-    };
-
-    await setDoc(doc(db, "users", id), data);
-
-    setUserId(id);
-
-    localStorage.setItem(
-      "profile",
-      JSON.stringify({ id, ...data })
-    );
-
-    alert("保存しました");
   };
 
   return (
