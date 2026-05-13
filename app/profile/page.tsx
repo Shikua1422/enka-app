@@ -1,17 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { db } from "../../firebase";
+import { db, storage } from "../../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { QRCodeCanvas } from "qrcode.react";
 
 export default function ProfilePage() {
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
-  const [iconBase64, setIconBase64] = useState("");
+  const [iconUrl, setIconUrl] = useState("");
   const [userId, setUserId] = useState("");
+  const [file, setFile] = useState<File | null>(null);
 
-  // 🔥 初期ロード（Firestore優先）
   useEffect(() => {
     const load = async () => {
       const saved = localStorage.getItem("profile");
@@ -27,7 +28,7 @@ export default function ProfilePage() {
 
         setName(data.name || "");
         setBio(data.bio || "");
-        setIconBase64(data.iconBase64 || "");
+        setIconUrl(data.iconUrl || "");
         setUserId(local.id);
       }
     };
@@ -35,14 +36,23 @@ export default function ProfilePage() {
     load();
   }, []);
 
-  // 💾 保存ボタン
+  // 💾 保存（画像アップロード込み）
   const handleSave = async () => {
     const id = userId || crypto.randomUUID();
+
+    let uploadedUrl = iconUrl;
+
+    // 🔥 画像が変更された時だけアップロード
+    if (file) {
+      const storageRef = ref(storage, `icons/${id}`);
+      await uploadBytes(storageRef, file);
+      uploadedUrl = await getDownloadURL(storageRef);
+    }
 
     const data = {
       name,
       bio,
-      iconBase64,
+      iconUrl: uploadedUrl,
       updatedAt: new Date(),
     };
 
@@ -52,10 +62,7 @@ export default function ProfilePage() {
 
     localStorage.setItem(
       "profile",
-      JSON.stringify({
-        id,
-        ...data,
-      })
+      JSON.stringify({ id, ...data })
     );
 
     alert("保存しました");
@@ -63,7 +70,7 @@ export default function ProfilePage() {
 
   return (
     <main style={{ padding: 15 }}>
-      <h2>プロフィール編集</h2>
+      <h2>プロフィール</h2>
 
       <input
         placeholder="名前"
@@ -72,23 +79,27 @@ export default function ProfilePage() {
         style={input}
       />
 
+      {/* 画像 */}
       <input
         type="file"
         accept="image/*"
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (!file) return;
-
-          const reader = new FileReader();
-          reader.onloadend = () => setIconBase64(reader.result as string);
-          reader.readAsDataURL(file);
+          const f = e.target.files?.[0];
+          if (!f) return;
+          setFile(f);
         }}
       />
 
-      {iconBase64 && (
+      {/* プレビュー */}
+      {iconUrl && (
         <img
-          src={iconBase64}
-          style={{ width: 80, height: 80, borderRadius: "50%" }}
+          src={iconUrl}
+          style={{
+            width: 80,
+            height: 80,
+            borderRadius: "50%",
+            marginTop: 10,
+          }}
         />
       )}
 
@@ -100,7 +111,7 @@ export default function ProfilePage() {
       />
 
       <button onClick={handleSave} style={button}>
-        保存する
+        保存
       </button>
 
       {userId && (
