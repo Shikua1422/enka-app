@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { db } from "../../firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 
 export default function ScanPage() {
   const [user, setUser] = useState<any>(null);
@@ -17,12 +17,15 @@ export default function ScanPage() {
         false
       );
 
-      scanner.render(async (text) => {
-        const snap = await getDoc(doc(db, "users", text));
+      scanner.render((text) => {
+        const ref = doc(db, "users", text);
 
-        if (snap.exists()) {
-          setUser(snap.data());
-        }
+        // 🔥 リアルタイム監視
+        onSnapshot(ref, (snap) => {
+          if (snap.exists()) {
+            setUser(snap.data());
+          }
+        });
       }, () => {});
     };
 
@@ -43,6 +46,7 @@ export default function ScanPage() {
               style={{ width: 80, borderRadius: "50%" }}
             />
           )}
+
           <p>{user.name}</p>
           <p>{user.bio}</p>
         </div>

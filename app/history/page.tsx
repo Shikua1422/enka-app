@@ -12,29 +12,35 @@ export default function HistoryPage() {
       localStorage.getItem("exchangeHistory") || "[]"
     );
 
-    const unsub: any[] = [];
+    const unsubList: any[] = [];
 
     saved.forEach((item: any) => {
       const ref = doc(db, "users", item.id);
 
-      const u = onSnapshot(ref, (snap) => {
+      const unsub = onSnapshot(ref, (snap) => {
         if (snap.exists()) {
+          const data = snap.data();
+
           setUsers((prev) => {
-            const filtered = prev.filter((x) => x.id !== item.id);
-            return [{ id: item.id, ...snap.data() }, ...filtered];
+            const filtered = prev.filter((u) => u.id !== item.id);
+
+            return [
+              { id: item.id, ...data },
+              ...filtered,
+            ];
           });
         }
       });
 
-      unsub.push(u);
+      unsubList.push(unsub);
     });
 
-    return () => unsub.forEach((f) => f());
+    return () => unsubList.forEach((u) => u());
   }, []);
 
   return (
     <div style={{ padding: 15 }}>
-      <h2>交換履歴</h2>
+      <h2>交換履歴（リアルタイム）</h2>
 
       {users.map((u) => (
         <div key={u.id} style={card}>
@@ -44,6 +50,7 @@ export default function HistoryPage() {
               style={{ width: 60, borderRadius: "50%" }}
             />
           )}
+
           <p>{u.name}</p>
           <p>{u.bio}</p>
         </div>
