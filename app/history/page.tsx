@@ -2,41 +2,62 @@
 
 import { useEffect, useState } from "react";
 import { db } from "../../firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
+
+type User = {
+  id: string;
+  name?: string;
+  bio?: string;
+  iconBase64?: string;
+};
 
 export default function HistoryPage() {
-  const [historyUsers, setHistoryUsers] = useState<any[]>([]);
+  const [historyUsers, setHistoryUsers] = useState<User[]>([]);
 
   useEffect(() => {
-    async function loadHistory() {
-      const savedHistory = JSON.parse(
-        localStorage.getItem("exchangeHistory") || "[]"
-      );
+    const savedHistory = JSON.parse(
+      localStorage.getItem("exchangeHistory") || "[]"
+    );
 
-      const users = [];
+    if (savedHistory.length === 0) return;
 
-      for (const item of savedHistory) {
-        const docRef = doc(db, "users", item.id);
+    const unsubscribes: (() => void)[] = [];
 
-        const docSnap = await getDoc(docRef);
+    const users: User[] = [];
 
-        if (docSnap.exists()) {
-          users.push({
+    savedHistory.forEach((item: any) => {
+      const ref = doc(db, "users", item.id);
+
+      // 🔥 リアルタイム監視
+      const unsubscribe = onSnapshot(ref, (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+
+          const updatedUser: User = {
             id: item.id,
-            ...docSnap.data(),
+            name: data.name,
+            bio: data.bio,
+            iconBase64: data.iconBase64,
+          };
+
+          setHistoryUsers((prev) => {
+            const filtered = prev.filter((u) => u.id !== item.id);
+            return [updatedUser, ...filtered];
           });
         }
-      }
+      });
 
-      setHistoryUsers(users);
-    }
+      unsubscribes.push(unsubscribe);
+    });
 
-    loadHistory();
+    return () => {
+      unsubscribes.forEach((unsub) => unsub());
+    };
   }, []);
 
   return (
     <main style={{ padding: "40px" }}>
-      <h1>交換履歴</h1>
+      <h1>交換履歴（リアルタイム）</h1>
 
       {historyUsers.length === 0 && (
         <p>まだ交換履歴がありません</p>
