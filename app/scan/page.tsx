@@ -5,123 +5,56 @@ import { db } from "../../firebase";
 import { doc, getDoc } from "firebase/firestore";
 
 export default function ScanPage() {
-  const [result, setResult] = useState("");
-  const [userData, setUserData] = useState<any>(null);
-  const [history, setHistory] = useState<any[]>([]);
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    const savedHistory = localStorage.getItem("exchangeHistory");
-
-    if (savedHistory) {
-      setHistory(JSON.parse(savedHistory));
-    }
-
-    async function startScanner() {
+    const start = async () => {
       const { Html5QrcodeScanner } = await import("html5-qrcode");
 
       const scanner = new Html5QrcodeScanner(
         "reader",
-        {
-          fps: 10,
-          qrbox: 250,
-        },
+        { fps: 10, qrbox: 250 },
         false
       );
 
-      scanner.render(
-        async (decodedText) => {
-          setResult(decodedText);
+      scanner.render(async (text) => {
+        const snap = await getDoc(doc(db, "users", text));
 
-          const docRef = doc(db, "users", decodedText);
+        if (snap.exists()) {
+          setUser(snap.data());
+        }
+      }, () => {});
+    };
 
-          const docSnap = await getDoc(docRef);
-
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-
-            setUserData(data);
-
-            const newHistoryItem = {
-              id: decodedText,
-            };
-
-            const existingHistory = JSON.parse(
-              localStorage.getItem("exchangeHistory") || "[]"
-            );
-
-            const alreadyExists = existingHistory.some(
-              (item: any) => item.id === decodedText
-            );
-
-            if (!alreadyExists) {
-              const updatedHistory = [newHistoryItem, ...existingHistory];
-
-              localStorage.setItem(
-                "exchangeHistory",
-                JSON.stringify(updatedHistory)
-              );
-
-              setHistory(updatedHistory);
-            }
-          }
-        },
-        () => {}
-      );
-    }
-
-    startScanner();
+    start();
   }, []);
 
   return (
-    <main style={{ padding: "40px" }}>
-      <h1>QRコード読み取り</h1>
+    <div style={{ padding: 15 }}>
+      <h2>QR読み取り</h2>
 
-      <div id="reader" style={{ width: "300px" }} />
+      <div id="reader" />
 
-      <p>読み取り結果:</p>
-      <p>{result}</p>
-
-      {userData && (
-        <div
-          style={{
-            marginTop: "30px",
-            border: "1px solid #ccc",
-            padding: "20px",
-            width: "320px",
-            borderRadius: "10px",
-          }}
-        >
-          <h2>相手プロフィール</h2>
-
-          {userData.iconBase64 && (
+      {user && (
+        <div style={card}>
+          {user.iconBase64 && (
             <img
-              src={userData.iconBase64}
-              alt="icon"
-              style={{
-                width: "100px",
-                height: "100px",
-                borderRadius: "50%",
-                objectFit: "cover",
-                marginBottom: "10px",
-              }}
+              src={user.iconBase64}
+              style={{ width: 80, borderRadius: "50%" }}
             />
           )}
-
-          <p>名前: {userData.name}</p>
-
-          <p>プロフィール:</p>
-
-          <div
-            style={{
-              whiteSpace: "pre-wrap",
-              border: "1px solid #ccc",
-              padding: "10px",
-            }}
-          >
-            {userData.bio}
-          </div>
+          <p>{user.name}</p>
+          <p>{user.bio}</p>
         </div>
       )}
-    </main>
+    </div>
   );
 }
+
+const card = {
+  marginTop: 20,
+  padding: 15,
+  borderRadius: 12,
+  background: "#fff",
+  boxShadow: "0 5px 20px rgba(0,0,0,0.08)",
+};

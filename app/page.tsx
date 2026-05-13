@@ -1,52 +1,87 @@
-import Link from "next/link";
+"use client";
 
-export default function Home() {
+import { useState } from "react";
+import ProfilePage from "./profile/page";
+import ScanPage from "./scan/page";
+import HistoryPage from "./history/page";
+
+export default function App() {
+  const [tab, setTab] = useState<"profile" | "scan" | "history">(
+    "profile"
+  );
+
   return (
     <main
       style={{
-        padding: "40px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "20px",
+        minHeight: "100vh",
+        background: "#f6f7fb",
+        paddingBottom: "70px",
       }}
     >
-      <h1>エンカ交換アプリ</h1>
+      {/* 本体 */}
+      <div>
+        {tab === "profile" && <ProfilePage />}
+        {tab === "scan" && <ScanPage />}
+        {tab === "history" && <HistoryPage />}
+      </div>
 
-      <Link href="/profile">
-        <button
-          style={{
-            padding: "15px",
-            width: "250px",
-            cursor: "pointer",
-          }}
-        >
-          プロフィール作成・編集
-        </button>
-      </Link>
+      {/* タブバー */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: "60px",
+          background: "#fff",
+          display: "flex",
+          borderTop: "1px solid #ddd",
+        }}
+      >
+        <TabButton
+          active={tab === "profile"}
+          onClick={() => setTab("profile")}
+          label="プロフィール"
+        />
 
-      <Link href="/scan">
-        <button
-          style={{
-            padding: "15px",
-            width: "250px",
-            cursor: "pointer",
-          }}
-        >
-          QRコード読み取り
-        </button>
-      </Link>
+        <TabButton
+          active={tab === "scan"}
+          onClick={() => setTab("scan")}
+          label="QR"
+        />
 
-      <Link href="/history">
-        <button
-          style={{
-            padding: "15px",
-            width: "250px",
-            cursor: "pointer",
-          }}
-        >
-          交換履歴
-        </button>
-      </Link>
+        <TabButton
+          active={tab === "history"}
+          onClick={() => setTab("history")}
+          label="履歴"
+        />
+      </div>
     </main>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        flex: 1,
+        border: "none",
+        background: "none",
+        fontWeight: "bold",
+        color: active ? "#111827" : "#999",
+        fontSize: "12px",
+      }}
+    >
+      {label}
+    </button>
   );
 }
