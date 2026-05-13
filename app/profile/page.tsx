@@ -11,11 +11,12 @@ export default function ProfilePage() {
   const [iconBase64, setIconBase64] = useState("");
   const [userId, setUserId] = useState("");
 
+  // 🔥 起動時にローカルから復元
   useEffect(() => {
-    const savedProfile = localStorage.getItem("profile");
+    const saved = localStorage.getItem("profile");
 
-    if (savedProfile) {
-      const profile = JSON.parse(savedProfile);
+    if (saved) {
+      const profile = JSON.parse(saved);
 
       setName(profile.name || "");
       setBio(profile.bio || "");
@@ -24,15 +25,18 @@ export default function ProfilePage() {
     }
   }, []);
 
+  // 💾 保存（Firestore + localStorage）
   const handleSave = async () => {
     const id = userId || crypto.randomUUID();
 
-    await setDoc(doc(db, "users", id), {
+    const data = {
       name,
       bio,
       iconBase64,
-      createdAt: new Date(),
-    });
+      updatedAt: new Date(),
+    };
+
+    await setDoc(doc(db, "users", id), data);
 
     setUserId(id);
 
@@ -53,6 +57,7 @@ export default function ProfilePage() {
     <main style={{ padding: "40px" }}>
       <h1>プロフィール編集</h1>
 
+      {/* 名前 */}
       <input
         type="text"
         placeholder="名前"
@@ -66,12 +71,12 @@ export default function ProfilePage() {
         }}
       />
 
+      {/* 画像アップロード */}
       <input
         type="file"
         accept="image/*"
         onChange={(e) => {
           const file = e.target.files?.[0];
-
           if (!file) return;
 
           const reader = new FileReader();
@@ -88,6 +93,7 @@ export default function ProfilePage() {
         }}
       />
 
+      {/* プレビュー画像 */}
       {iconBase64 && (
         <img
           src={iconBase64}
@@ -102,8 +108,9 @@ export default function ProfilePage() {
         />
       )}
 
+      {/* 自由記述 */}
       <textarea
-        placeholder="自由記述欄"
+        placeholder="自由記述（自己紹介など）"
         value={bio}
         onChange={(e) => setBio(e.target.value)}
         style={{
@@ -115,6 +122,7 @@ export default function ProfilePage() {
         }}
       />
 
+      {/* 保存ボタン */}
       <button
         onClick={handleSave}
         style={{
@@ -125,6 +133,7 @@ export default function ProfilePage() {
         保存
       </button>
 
+      {/* QR表示 */}
       {userId && (
         <div style={{ marginTop: "30px" }}>
           <p>あなたのQRコード</p>
@@ -132,6 +141,45 @@ export default function ProfilePage() {
           <QRCodeCanvas value={userId} size={200} />
         </div>
       )}
+
+      {/* 👇リアルタイムプレビュー */}
+      <div
+        style={{
+          marginTop: "40px",
+          border: "1px solid #ccc",
+          padding: "20px",
+          width: "320px",
+          borderRadius: "10px",
+        }}
+      >
+        <h2>プレビュー</h2>
+
+        {iconBase64 && (
+          <img
+            src={iconBase64}
+            alt="icon"
+            style={{
+              width: "80px",
+              height: "80px",
+              borderRadius: "50%",
+              objectFit: "cover",
+              marginBottom: "10px",
+            }}
+          />
+        )}
+
+        <p>名前: {name || "未入力"}</p>
+
+        <div
+          style={{
+            whiteSpace: "pre-wrap",
+            border: "1px solid #ddd",
+            padding: "10px",
+          }}
+        >
+          {bio || "自由記述が未入力です"}
+        </div>
+      </div>
     </main>
   );
 }
