@@ -1,87 +1,137 @@
 "use client";
 
-import { useState } from "react";
-import ProfilePage from "./profile/page";
-import ScanPage from "./scan/page";
-import HistoryPage from "./history/page";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  doc,
+  getDoc,
+  setDoc,
+} from "firebase/firestore";
 
-export default function App() {
-  const [tab, setTab] = useState<"profile" | "scan" | "history">(
-    "profile"
-  );
+import { db } from "../firebase";
+
+export default function LoginPage() {
+  const router = useRouter();
+
+  const [xId, setXId] = useState("");
+  const [password, setPassword] = useState("");
+
+  useEffect(() => {
+    const uid = localStorage.getItem("uid");
+
+    if (uid) {
+      router.push("/profile");
+    }
+  }, []);
+
+  const login = async () => {
+    if (!xId || !password) {
+      alert("入力してください");
+      return;
+    }
+
+    const uid = xId.toLowerCase();
+
+    const ref = doc(db, "users", uid);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+      await setDoc(ref, {
+        uid,
+        xId,
+        password,
+        bio: "",
+        iconUrl: `https://unavatar.io/x/${xId}`,
+        createdAt: Date.now(),
+      });
+    } else {
+      const data = snap.data();
+
+      if (data.password !== password) {
+        alert("パスワードが違います");
+        return;
+      }
+    }
+
+    localStorage.setItem("uid", uid);
+
+    router.push("/profile");
+  };
 
   return (
     <main
       style={{
         minHeight: "100vh",
-        background: "#f6f7fb",
-        paddingBottom: "70px",
+        background: "#0f172a",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 20,
       }}
     >
-      {/* 本体 */}
-      <div>
-        {tab === "profile" && <ProfilePage />}
-        {tab === "scan" && <ScanPage />}
-        {tab === "history" && <HistoryPage />}
-      </div>
-
-      {/* タブバー */}
       <div
         style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: "60px",
-          background: "#fff",
-          display: "flex",
-          borderTop: "1px solid #ddd",
+          width: "100%",
+          maxWidth: 400,
+          background: "#1e293b",
+          padding: 24,
+          borderRadius: 20,
         }}
       >
-        <TabButton
-          active={tab === "profile"}
-          onClick={() => setTab("profile")}
-          label="プロフィール"
+        <h1
+          style={{
+            color: "white",
+            fontSize: 28,
+            fontWeight: "bold",
+            marginBottom: 20,
+            textAlign: "center",
+          }}
+        >
+          ENKA
+        </h1>
+
+        <input
+          placeholder="X ID"
+          value={xId}
+          onChange={(e) => setXId(e.target.value)}
+          style={inputStyle}
         />
 
-        <TabButton
-          active={tab === "scan"}
-          onClick={() => setTab("scan")}
-          label="QR"
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={inputStyle}
         />
 
-        <TabButton
-          active={tab === "history"}
-          onClick={() => setTab("history")}
-          label="履歴"
-        />
+        <button
+          onClick={login}
+          style={buttonStyle}
+        >
+          ログイン / 新規登録
+        </button>
       </div>
     </main>
   );
 }
 
-function TabButton({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        flex: 1,
-        border: "none",
-        background: "none",
-        fontWeight: "bold",
-        color: active ? "#111827" : "#999",
-        fontSize: "12px",
-      }}
-    >
-      {label}
-    </button>
-  );
-}
+const inputStyle = {
+  width: "100%",
+  padding: 14,
+  borderRadius: 12,
+  border: "none",
+  marginBottom: 12,
+  fontSize: 16,
+};
+
+const buttonStyle = {
+  width: "100%",
+  padding: 14,
+  borderRadius: 12,
+  border: "none",
+  background: "#3b82f6",
+  color: "white",
+  fontWeight: "bold",
+  fontSize: 16,
+};

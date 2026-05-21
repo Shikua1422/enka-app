@@ -1,151 +1,165 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { db } from "../../firebase";
 import {
   doc,
   getDoc,
-  setDoc,
+  updateDoc,
 } from "firebase/firestore";
 
+import { db } from "../../firebase";
+
+import QRCode from "react-qr-code";
+import Link from "next/link";
+
 export default function ProfilePage() {
-  const [userId, setUserId] = useState("");
-  const [name, setName] = useState("");
+  const [uid, setUid] = useState("");
+  const [xId, setXId] = useState("");
   const [bio, setBio] = useState("");
-  const [xUrl, setXUrl] = useState("");
-  const [icon, setIcon] = useState("");
+
+  const [showQR, setShowQR] = useState(false);
 
   useEffect(() => {
-    initializeUser();
+    const userUid = localStorage.getItem("uid");
+
+    if (!userUid) return;
+
+    setUid(userUid);
+
+    load(userUid);
   }, []);
 
-  const initializeUser = async () => {
-    let savedUserId = localStorage.getItem("userId");
+  const load = async (userUid: string) => {
+    const ref = doc(db, "users", userUid);
+    const snap = await getDoc(ref);
 
-    if (!savedUserId) {
-      savedUserId = crypto.randomUUID();
-      localStorage.setItem("userId", savedUserId);
-    }
+    if (!snap.exists()) return;
 
-    setUserId(savedUserId);
+    const data = snap.data();
 
-    const snap = await getDoc(doc(db, "users", savedUserId));
-
-    if (snap.exists()) {
-      const data = snap.data();
-
-      setName(data.name || "");
-      setBio(data.bio || "");
-      setXUrl(data.xUrl || "");
-      setIcon(data.icon || "");
-    }
+    setXId(data.xId || "");
+    setBio(data.bio || "");
   };
 
-  const handleXUrlChange = (value: string) => {
-    setXUrl(value);
-
-    const username = value
-      .split("x.com/")[1]
-      ?.replace("/", "");
-
-    if (username) {
-      setIcon(`https://unavatar.io/x/${username}`);
-    }
-  };
-
-  const saveProfile = async () => {
-    if (!userId) return;
-
-    await setDoc(doc(db, "users", userId), {
-      name,
+  const save = async () => {
+    await updateDoc(doc(db, "users", uid), {
       bio,
-      xUrl,
-      icon,
-      updatedAt: Date.now(),
     });
 
     alert("保存しました");
   };
 
   return (
-    <div className="min-h-screen bg-black text-white pb-24">
-      <div className="max-w-md mx-auto p-6">
+    <main style={mainStyle}>
+      <div style={cardStyle}>
+        <img
+          src={`https://unavatar.io/x/${xId}`}
+          style={{
+            width: 120,
+            height: 120,
+            borderRadius: "50%",
+            marginBottom: 16,
+          }}
+        />
 
-        <h1 className="text-3xl font-bold mb-6">
-          Profile
+        <h1 style={{ color: "white" }}>
+          @{xId}
         </h1>
 
-        <div className="bg-zinc-900 rounded-3xl p-6 shadow-xl">
+        <textarea
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+          placeholder="プロフィール"
+          style={{
+            width: "100%",
+            height: 120,
+            borderRadius: 12,
+            border: "none",
+            padding: 12,
+            marginTop: 20,
+            fontSize: 16,
+          }}
+        />
 
-          <div className="flex justify-center mb-6">
-            {icon ? (
-              <img
-                src={icon}
-                alt="icon"
-                className="w-28 h-28 rounded-full border-4 border-cyan-400"
-              />
-            ) : (
-              <div className="w-28 h-28 rounded-full bg-zinc-700" />
-            )}
-          </div>
+        <button
+          onClick={save}
+          style={buttonStyle}
+        >
+          保存
+        </button>
 
-          <input
-            type="text"
-            placeholder="名前"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full p-3 rounded-xl bg-zinc-800 mb-4"
-          />
+        <button
+          onClick={() => setShowQR(!showQR)}
+          style={{
+            ...buttonStyle,
+            background: "#8b5cf6",
+          }}
+        >
+          QR表示
+        </button>
 
-          <textarea
-            placeholder="自由記述"
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            className="w-full p-3 rounded-xl bg-zinc-800 mb-4 h-28"
-          />
-
-          <input
-            type="text"
-            placeholder="https://x.com/ユーザー名"
-            value={xUrl}
-            onChange={(e) => handleXUrlChange(e.target.value)}
-            className="w-full p-3 rounded-xl bg-zinc-800 mb-6"
-          />
-
-          <button
-            onClick={saveProfile}
-            className="w-full bg-cyan-500 hover:bg-cyan-400 transition rounded-xl p-3 font-bold"
+        {showQR && (
+          <div
+            style={{
+              background: "white",
+              padding: 20,
+              borderRadius: 20,
+              marginTop: 20,
+            }}
           >
-            保存
-          </button>
-
-        </div>
+            <QRCode
+              value={uid}
+              size={260}
+            />
+          </div>
+        )}
       </div>
 
-      <BottomNav />
-    </div>
+      <nav style={navStyle}>
+        <Link href="/profile">Profile</Link>
+        <Link href="/scan">Scan</Link>
+        <Link href="/history">History</Link>
+      </nav>
+    </main>
   );
 }
 
-function BottomNav() {
-  return (
-    <div className="fixed bottom-0 left-0 w-full bg-zinc-900 border-t border-zinc-800">
-      <div className="max-w-md mx-auto flex justify-around p-4">
+const mainStyle = {
+  minHeight: "100vh",
+  background: "#0f172a",
+  padding: 20,
+};
 
-        <Link href="/profile" className="text-cyan-400 font-bold">
-          Profile
-        </Link>
+const cardStyle = {
+  background: "#1e293b",
+  borderRadius: 24,
+  padding: 24,
+  maxWidth: 500,
+  margin: "0 auto",
+  display: "flex",
+  flexDirection: "column" as const,
+  alignItems: "center",
+};
 
-        <Link href="/scan" className="text-white">
-          Scan
-        </Link>
+const buttonStyle = {
+  marginTop: 16,
+  width: "100%",
+  padding: 14,
+  borderRadius: 12,
+  border: "none",
+  background: "#3b82f6",
+  color: "white",
+  fontWeight: "bold",
+};
 
-        <Link href="/history" className="text-white">
-          History
-        </Link>
-
-      </div>
-    </div>
-  );
-}
+const navStyle = {
+  position: "fixed" as const,
+  bottom: 0,
+  left: 0,
+  right: 0,
+  background: "#111827",
+  display: "flex",
+  justifyContent: "space-around",
+  padding: 16,
+  color: "white",
+};

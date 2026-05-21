@@ -1,183 +1,135 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 
 import {
   collection,
   onSnapshot,
   query,
-  orderBy,
   where,
-  getDoc,
-  doc,
 } from "firebase/firestore";
 
 import { db } from "../../firebase";
 
+import Link from "next/link";
+
 export default function HistoryPage() {
-
-  const [histories, setHistories] =
-    useState<any[]>([]);
-
-  const [myId, setMyId] = useState("");
+  const [items, setItems] = useState<any[]>([]);
 
   useEffect(() => {
+    const uid = localStorage.getItem("uid");
 
-    const savedUserId =
-      localStorage.getItem("userId");
+    if (!uid) return;
 
-    if (!savedUserId) return;
-
-    setMyId(savedUserId);
-
-    // 自分を含む履歴のみ取得
     const q = query(
-      collection(db, "history"),
-      where("users", "array-contains", savedUserId),
-      orderBy("createdAt", "desc")
+      collection(db, "histories"),
+      where("ownerUid", "==", uid)
     );
 
-    const unsubscribe =
-      onSnapshot(q, async (snapshot) => {
+    return onSnapshot(q, (snapshot) => {
+      const list: any[] = [];
 
-        const list: any[] = [];
-
-        for (const item of snapshot.docs) {
-
-          const data = item.data();
-
-          // 相手ID取得
-          const partnerId =
-            data.users.find(
-              (id: string) =>
-                id !== savedUserId
-            );
-
-          if (!partnerId) continue;
-
-          // 相手プロフィール取得
-          const partnerSnap =
-            await getDoc(
-              doc(db, "users", partnerId)
-            );
-
-          if (!partnerSnap.exists()) {
-            continue;
-          }
-
-          list.push({
-            id: item.id,
-            createdAt: data.createdAt,
-            partnerId,
-            ...partnerSnap.data(),
-          });
-        }
-
-        setHistories(list);
+      snapshot.forEach((doc) => {
+        list.push(doc.data());
       });
 
-    return () => unsubscribe();
+      list.sort(
+        (a, b) => b.createdAt - a.createdAt
+      );
 
+      setItems(list);
+    });
   }, []);
 
   return (
-    <div className="min-h-screen bg-black text-white pb-24">
-
-      <div className="max-w-md mx-auto p-6">
-
-        <h1 className="text-3xl font-bold mb-6">
-          History
+    <main style={mainStyle}>
+      <div style={cardStyle}>
+        <h1
+          style={{
+            color: "white",
+            marginBottom: 20,
+          }}
+        >
+          Exchange History
         </h1>
 
-        <div className="space-y-4">
+        {items.map((item, index) => (
+          <div
+            key={index}
+            style={{
+              background: "#334155",
+              borderRadius: 16,
+              padding: 16,
+              marginBottom: 12,
+              display: "flex",
+              gap: 16,
+              alignItems: "center",
+            }}
+          >
+            <img
+              src={item.iconUrl}
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: "50%",
+              }}
+            />
 
-          {histories.length === 0 && (
-            <div className="bg-zinc-900 rounded-3xl p-8 text-center text-zinc-500">
-              まだ交換履歴がありません
-            </div>
-          )}
-
-          {histories.map((user) => (
-
-            <div
-              key={user.id}
-              className="bg-zinc-900 rounded-3xl p-5 shadow-xl"
-            >
-
-              <div className="flex items-center gap-4">
-
-                <img
-                  src={
-                    user.icon ||
-                    "https://placehold.jp/150x150.png"
-                  }
-                  alt="icon"
-                  className="w-20 h-20 rounded-full object-cover border-2 border-cyan-400"
-                />
-
-                <div className="flex-1">
-
-                  <div className="text-xl font-bold">
-                    {user.name}
-                  </div>
-
-                  <div className="text-zinc-400 whitespace-pre-wrap mt-2">
-                    {user.bio}
-                  </div>
-
-                  <div className="text-xs text-zinc-600 mt-3">
-                    ID: {user.partnerId}
-                  </div>
-
-                </div>
-
+            <div>
+              <div
+                style={{
+                  color: "white",
+                  fontWeight: "bold",
+                  fontSize: 18,
+                }}
+              >
+                @{item.xId}
               </div>
 
+              <div
+                style={{
+                  color: "#cbd5e1",
+                  marginTop: 4,
+                }}
+              >
+                {item.bio}
+              </div>
             </div>
-
-          ))}
-
-        </div>
-
+          </div>
+        ))}
       </div>
 
-      <BottomNav />
-
-    </div>
+      <nav style={navStyle}>
+        <Link href="/profile">Profile</Link>
+        <Link href="/scan">Scan</Link>
+        <Link href="/history">History</Link>
+      </nav>
+    </main>
   );
 }
 
-function BottomNav() {
+const mainStyle = {
+  minHeight: "100vh",
+  background: "#0f172a",
+  padding: 20,
+};
 
-  return (
-    <div className="fixed bottom-0 left-0 w-full bg-zinc-900 border-t border-zinc-800">
+const cardStyle = {
+  background: "#1e293b",
+  borderRadius: 24,
+  padding: 24,
+  maxWidth: 500,
+  margin: "0 auto",
+};
 
-      <div className="max-w-md mx-auto flex justify-around p-4">
-
-        <Link
-          href="/profile"
-          className="text-white"
-        >
-          Profile
-        </Link>
-
-        <Link
-          href="/scan"
-          className="text-white"
-        >
-          Scan
-        </Link>
-
-        <Link
-          href="/history"
-          className="text-cyan-400 font-bold"
-        >
-          History
-        </Link>
-
-      </div>
-
-    </div>
-  );
-}
+const navStyle = {
+  position: "fixed" as const,
+  bottom: 0,
+  left: 0,
+  right: 0,
+  background: "#111827",
+  display: "flex",
+  justifyContent: "space-around",
+  padding: 16,
+  color: "white",
+};
