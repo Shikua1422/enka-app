@@ -23,6 +23,9 @@ export default function ScanPage() {
   const [myProfile, setMyProfile] =
     useState<any>(null);
 
+  const [showQR, setShowQR] =
+    useState(false);
+
   const scannerRef =
     useRef<Html5QrcodeScanner | null>(null);
 
@@ -35,7 +38,6 @@ export default function ScanPage() {
       let savedUserId =
         localStorage.getItem("userId");
 
-      // 初回ユーザー生成
       if (!savedUserId) {
 
         savedUserId =
@@ -55,7 +57,6 @@ export default function ScanPage() {
       const userSnap =
         await getDoc(userRef);
 
-      // 初回プロフィール生成
       if (!userSnap.exists()) {
 
         await setDoc(userRef, {
@@ -97,11 +98,12 @@ export default function ScanPage() {
       new Html5QrcodeScanner(
         "reader",
         {
-          fps: 5,
+          fps: 10,
           qrbox: {
-            width: 250,
-            height: 250,
+            width: 260,
+            height: 260,
           },
+          aspectRatio: 1,
         },
         false
       );
@@ -126,7 +128,6 @@ export default function ScanPage() {
               decodedText
             );
 
-          // 成功
           if (result === "success") {
 
             await scanner.clear();
@@ -138,14 +139,12 @@ export default function ScanPage() {
             return;
           }
 
-          // 既交換
           if (result === "already") {
             alert(
               "このユーザーとは交換済みです"
             );
           }
 
-          // 自分
           if (result === "self") {
             alert(
               "自分自身は交換できません"
@@ -156,7 +155,6 @@ export default function ScanPage() {
           console.error(e);
         }
 
-        // 連続通知防止
         setTimeout(() => {
           processingRef.current = false;
         }, 2000);
@@ -172,18 +170,15 @@ export default function ScanPage() {
     targetId: string
   ) => {
 
-    // 自分禁止
     if (myId === targetId) {
       return "self";
     }
 
-    // 固定ペアキー
     const pairKey =
       [myId, targetId]
         .sort()
         .join("_");
 
-    // 交換済み確認
     const pairRef =
       doc(db, "pairs", pairKey);
 
@@ -194,7 +189,6 @@ export default function ScanPage() {
       return "already";
     }
 
-    // 相手存在確認
     const targetRef =
       doc(db, "users", targetId);
 
@@ -205,11 +199,9 @@ export default function ScanPage() {
       return "notfound";
     }
 
-    // 履歴ID（毎回ユニーク）
     const historyId =
       `${pairKey}_${Date.now()}`;
 
-    // 履歴保存
     await setDoc(
       doc(db, "history", historyId),
       {
@@ -219,7 +211,6 @@ export default function ScanPage() {
       }
     );
 
-    // ペア保存
     await setDoc(
       pairRef,
       {
@@ -262,18 +253,21 @@ export default function ScanPage() {
               {myProfile?.bio}
             </div>
 
-            <div className="bg-white p-4 rounded-2xl">
-              <QRCodeCanvas
-                value={userId}
-                size={220}
-              />
-            </div>
+            {/* QR BUTTON */}
+            <button
+              onClick={() =>
+                setShowQR(true)
+              }
+              className="bg-cyan-400 text-black font-bold px-6 py-4 rounded-2xl text-lg active:scale-95 transition"
+            >
+              QRコードを表示
+            </button>
 
           </div>
 
         </div>
 
-        {/* QR */}
+        {/* SCANNER */}
         <div className="bg-zinc-900 rounded-3xl p-6 shadow-xl">
 
           <h2 className="text-xl font-bold mb-4">
@@ -289,6 +283,39 @@ export default function ScanPage() {
         </div>
 
       </div>
+
+      {/* QR MODAL */}
+      {showQR && (
+
+        <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center p-6">
+
+          <div className="bg-white p-8 rounded-3xl">
+
+            <QRCodeCanvas
+              value={userId}
+              size={320}
+              level="H"
+              includeMargin={true}
+            />
+
+          </div>
+
+          <div className="text-white text-center mt-6 text-lg font-bold">
+            相手にQRを読み取ってもらってください
+          </div>
+
+          <button
+            onClick={() =>
+              setShowQR(false)
+            }
+            className="mt-8 bg-white text-black px-6 py-3 rounded-2xl font-bold"
+          >
+            閉じる
+          </button>
+
+        </div>
+
+      )}
 
       <BottomNav />
 
