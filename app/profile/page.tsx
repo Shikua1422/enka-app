@@ -1,143 +1,135 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { db, storage } from "../../firebase";
+import { db } from "../../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { QRCodeCanvas } from "qrcode.react";
+import Link from "next/link";
 
 export default function ProfilePage() {
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
-  const [iconUrl, setIconUrl] = useState("");
-  const [userId, setUserId] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [xUrl, setXUrl] = useState("");
+  const [icon, setIcon] = useState("");
+
+  const userId = "demo-user";
 
   useEffect(() => {
-    const load = async () => {
-      const saved = localStorage.getItem("profile");
-      if (!saved) return;
-
-      const local = JSON.parse(saved);
-      if (!local.id) return;
-
-      const snap = await getDoc(doc(db, "users", local.id));
-
-      if (snap.exists()) {
-        const data = snap.data();
-
-        setName(data.name || "");
-        setBio(data.bio || "");
-        setIconUrl(data.iconUrl || "");
-        setUserId(local.id);
-      }
-    };
-
-    load();
+    loadProfile();
   }, []);
 
-  // 💾 保存（画像アップロード込み）
-  const handleSave = async () => {
-    try {
-        const id = userId || crypto.randomUUID();
+  const loadProfile = async () => {
+    const ref = doc(db, "users", userId);
+    const snap = await getDoc(ref);
 
-        let uploadedUrl = iconUrl;
+    if (snap.exists()) {
+      const data = snap.data();
 
-        if (file) {
-        const storageRef = ref(storage, `icons/${id}`);
-        await uploadBytes(storageRef, file);
-        uploadedUrl = await getDownloadURL(storageRef);
-        }
-
-        const data = {
-        name,
-        bio,
-        iconUrl: uploadedUrl,
-        updatedAt: new Date(),
-        };
-
-        await setDoc(doc(db, "users", id), data);
-
-        setUserId(id);
-
-        localStorage.setItem("profile", JSON.stringify({ id, ...data }));
-
-        alert("保存成功");
-    } catch (e) {
-        console.error("保存エラー:", e);
-        alert("保存に失敗しました（コンソール見て）");
+      setName(data.name || "");
+      setBio(data.bio || "");
+      setXUrl(data.xUrl || "");
+      setIcon(data.icon || "");
     }
   };
 
+  const handleXUrlChange = (value: string) => {
+    setXUrl(value);
+
+    const username = value.split("x.com/")[1]?.replace("/", "");
+
+    if (username) {
+      setIcon(`https://unavatar.io/x/${username}`);
+    }
+  };
+
+  const saveProfile = async () => {
+    await setDoc(doc(db, "users", userId), {
+      name,
+      bio,
+      xUrl,
+      icon,
+    });
+
+    alert("保存しました");
+  };
+
   return (
-    <main style={{ padding: 15 }}>
-      <h2>プロフィール</h2>
+    <div className="min-h-screen bg-black text-white pb-24">
+      <div className="max-w-md mx-auto p-6">
 
-      <input
-        placeholder="名前"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        style={input}
-      />
+        <h1 className="text-3xl font-bold mb-6">
+          Profile
+        </h1>
 
-      {/* 画像 */}
-      <input
-        type="file"
-        accept="image/*"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (!f) return;
-          setFile(f);
-        }}
-      />
+        <div className="bg-zinc-900 rounded-3xl p-6 shadow-xl">
 
-      {/* プレビュー */}
-      {iconUrl && (
-        <img
-          src={iconUrl}
-          style={{
-            width: 80,
-            height: 80,
-            borderRadius: "50%",
-            marginTop: 10,
-          }}
-        />
-      )}
+          <div className="flex justify-center mb-6">
+            {icon ? (
+              <img
+                src={icon}
+                alt="icon"
+                className="w-28 h-28 rounded-full border-4 border-cyan-400"
+              />
+            ) : (
+              <div className="w-28 h-28 rounded-full bg-zinc-700" />
+            )}
+          </div>
 
-      <textarea
-        placeholder="自己紹介"
-        value={bio}
-        onChange={(e) => setBio(e.target.value)}
-        style={{ ...input, height: 120 }}
-      />
+          <input
+            type="text"
+            placeholder="名前"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full p-3 rounded-xl bg-zinc-800 mb-4"
+          />
 
-      <button onClick={handleSave} style={button}>
-        保存
-      </button>
+          <textarea
+            placeholder="自由記述"
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            className="w-full p-3 rounded-xl bg-zinc-800 mb-4 h-28"
+          />
 
-      {userId && (
-        <div style={{ marginTop: 20 }}>
-          <QRCodeCanvas value={userId} size={160} />
+          <input
+            type="text"
+            placeholder="https://x.com/ユーザー名"
+            value={xUrl}
+            onChange={(e) => handleXUrlChange(e.target.value)}
+            className="w-full p-3 rounded-xl bg-zinc-800 mb-6"
+          />
+
+          <button
+            onClick={saveProfile}
+            className="w-full bg-cyan-500 hover:bg-cyan-400 transition rounded-xl p-3 font-bold"
+          >
+            保存
+          </button>
+
         </div>
-      )}
-    </main>
+      </div>
+
+      <BottomNav />
+    </div>
   );
 }
 
-const input = {
-  width: "100%",
-  padding: 10,
-  marginBottom: 10,
-  border: "1px solid #ddd",
-  borderRadius: 10,
-};
+function BottomNav() {
+  return (
+    <div className="fixed bottom-0 left-0 w-full bg-zinc-900 border-t border-zinc-800">
+      <div className="max-w-md mx-auto flex justify-around p-4">
 
-const button = {
-  width: "100%",
-  padding: 12,
-  borderRadius: 10,
-  border: "none",
-  background: "#111827",
-  color: "white",
-  fontWeight: "bold",
-};
+        <Link href="/profile" className="text-cyan-400 font-bold">
+          Profile
+        </Link>
+
+        <Link href="/scan" className="text-white">
+          Scan
+        </Link>
+
+        <Link href="/history" className="text-white">
+          History
+        </Link>
+
+      </div>
+    </div>
+  );
+}

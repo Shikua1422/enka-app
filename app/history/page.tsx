@@ -1,68 +1,108 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  collection,
+  onSnapshot,
+  orderBy,
+  query,
+} from "firebase/firestore";
 import { db } from "../../firebase";
-import { doc, onSnapshot } from "firebase/firestore";
 
 export default function HistoryPage() {
-  const [users, setUsers] = useState<any[]>([]);
+  const [histories, setHistories] = useState<any[]>([]);
 
   useEffect(() => {
-    const saved = JSON.parse(
-      localStorage.getItem("exchangeHistory") || "[]"
+    const q = query(
+      collection(db, "history"),
+      orderBy("createdAt", "desc")
     );
 
-    const unsubList: any[] = [];
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list: any[] = [];
 
-    saved.forEach((item: any) => {
-      const ref = doc(db, "users", item.id);
-
-      const unsub = onSnapshot(ref, (snap) => {
-        if (snap.exists()) {
-          const data = snap.data();
-
-          setUsers((prev) => {
-            const filtered = prev.filter((u) => u.id !== item.id);
-
-            return [
-              { id: item.id, ...data },
-              ...filtered,
-            ];
-          });
-        }
+      snapshot.forEach((doc) => {
+        list.push({
+          id: doc.id,
+          ...doc.data(),
+        });
       });
 
-      unsubList.push(unsub);
+      setHistories(list);
     });
 
-    return () => unsubList.forEach((u) => u());
+    return () => unsubscribe();
   }, []);
 
   return (
-    <div style={{ padding: 15 }}>
-      <h2>交換履歴（リアルタイム）</h2>
+    <div className="min-h-screen bg-black text-white pb-24">
+      <div className="max-w-md mx-auto p-6">
 
-      {users.map((u) => (
-        <div key={u.id} style={card}>
-          {u.iconBase64 && (
-            <img
-              src={u.iconBase64}
-              style={{ width: 60, borderRadius: "50%" }}
-            />
-          )}
+        <h1 className="text-3xl font-bold mb-6">
+          History
+        </h1>
 
-          <p>{u.name}</p>
-          <p>{u.bio}</p>
+        <div className="space-y-4">
+
+          {histories.map((item) => (
+            <div
+              key={item.id}
+              className="bg-zinc-900 rounded-3xl p-4 shadow-xl"
+            >
+              <div className="flex items-center gap-4">
+
+                {item.targetData?.icon && (
+                  <img
+                    src={item.targetData.icon}
+                    alt="icon"
+                    className="w-16 h-16 rounded-full border-2 border-cyan-400"
+                  />
+                )}
+
+                <div>
+
+                  <div className="text-xl font-bold">
+                    {item.targetData?.name}
+                  </div>
+
+                  <div className="text-zinc-400 text-sm whitespace-pre-wrap">
+                    {item.targetData?.bio}
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+          ))}
+
         </div>
-      ))}
+
+      </div>
+
+      <BottomNav />
     </div>
   );
 }
 
-const card = {
-  marginBottom: 10,
-  padding: 15,
-  borderRadius: 12,
-  background: "#fff",
-  boxShadow: "0 5px 20px rgba(0,0,0,0.08)",
-};
+function BottomNav() {
+  return (
+    <div className="fixed bottom-0 left-0 w-full bg-zinc-900 border-t border-zinc-800">
+      <div className="max-w-md mx-auto flex justify-around p-4">
+
+        <Link href="/profile" className="text-white">
+          Profile
+        </Link>
+
+        <Link href="/scan" className="text-white">
+          Scan
+        </Link>
+
+        <Link href="/history" className="text-cyan-400 font-bold">
+          History
+        </Link>
+
+      </div>
+    </div>
+  );
+}
