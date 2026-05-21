@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { QRCodeCanvas } from "qrcode.react";
 import { Html5QrcodeScanner } from "html5-qrcode";
@@ -17,8 +17,18 @@ export default function ScanPage() {
   const [userId, setUserId] = useState("");
   const [myProfile, setMyProfile] = useState<any>(null);
 
+  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+
+  // 同じQR連続読み込み防止
+  const lastScannedRef = useRef("");
+  const isProcessingRef = useRef(false);
+
   useEffect(() => {
     initializeUser();
+
+    return () => {
+      scannerRef.current?.clear();
+    };
   }, []);
 
   const initializeUser = async () => {
@@ -41,6 +51,8 @@ export default function ScanPage() {
   };
 
   const startScanner = (myId: string) => {
+    if (scannerRef.current) return;
+
     const scanner = new Html5QrcodeScanner(
       "reader",
       {
@@ -50,9 +62,41 @@ export default function ScanPage() {
       false
     );
 
+    scannerRef.current = scanner;
+
     scanner.render(
       async (decodedText) => {
-        await exchangeProfile(myId, decodedText);
+
+        // 同じQR連続防止
+        if (
+          lastScannedRef.current === decodedText
+        ) {
+          return;
+        }
+
+        // 二重実行防止
+        if (isProcessingRef.current) {
+          return;
+        }
+
+        isProcessingRef.current = true;
+        lastScannedRef.current = decodedText;
+
+        try {
+          await exchangeProfile(
+            myId,
+            decodedText
+          );
+        } catch (e) {
+          console.error(e);
+        }
+
+        // 3秒後に再読込可能
+        setTimeout(() => {
+          lastScannedRef.current = "";
+        }, 3000);
+
+        isProcessingRef.current = false;
       },
       () => {}
     );
@@ -62,13 +106,17 @@ export default function ScanPage() {
     myId: string,
     targetId: string
   ) => {
+
+    // 自分禁止
     if (myId === targetId) {
-      alert("自分自身とは交換できません");
       return;
     }
 
+    // 2人の組み合わせ固定
     const historyId =
-      [myId, targetId].sort().join("_");
+      [myId, targetId]
+        .sort()
+        .join("_");
 
     const historyRef = doc(
       db,
@@ -76,10 +124,11 @@ export default function ScanPage() {
       historyId
     );
 
-    const historySnap = await getDoc(historyRef);
+    const historySnap =
+      await getDoc(historyRef);
 
+    // 既交換なら無視
     if (historySnap.exists()) {
-      alert("すでに交換済みです");
       return;
     }
 
@@ -88,7 +137,6 @@ export default function ScanPage() {
     );
 
     if (!targetSnap.exists()) {
-      alert("ユーザーが存在しません");
       return;
     }
 
@@ -97,7 +145,7 @@ export default function ScanPage() {
       createdAt: Date.now(),
     });
 
-    alert("交換しました");
+    alert("交換しました！");
   };
 
   return (
@@ -121,10 +169,10 @@ export default function ScanPage() {
             )}
 
             <div className="text-2xl font-bold">
-              {myProfile?.name}
+              {myProfile?.name || "NO NAME"}
             </div>
 
-            <div className="text-zinc-400 mb-6 text-center">
+            <div className="text-zinc-400 mb-6 text-center whitespace-pre-wrap">
               {myProfile?.bio}
             </div>
 
@@ -140,11 +188,17 @@ export default function ScanPage() {
         </div>
 
         <div className="bg-zinc-900 rounded-3xl p-6 shadow-xl">
+
           <h2 className="text-xl font-bold mb-4">
             QR読み取り
           </h2>
 
           <div id="reader" />
+
+          <p className="text-zinc-500 text-sm mt-4">
+            同じユーザーは1回のみ交換できます
+          </p>
+
         </div>
 
       </div>
@@ -159,15 +213,24 @@ function BottomNav() {
     <div className="fixed bottom-0 left-0 w-full bg-zinc-900 border-t border-zinc-800">
       <div className="max-w-md mx-auto flex justify-around p-4">
 
-        <Link href="/profile" className="text-white">
+        <Link
+          href="/profile"
+          className="text-white"
+        >
           Profile
         </Link>
 
-        <Link href="/scan" className="text-cyan-400 font-bold">
+        <Link
+          href="/scan"
+          className="text-cyan-400 font-bold"
+        >
           Scan
         </Link>
 
-        <Link href="/history" className="text-white">
+        <Link
+          href="/history"
+          className="text-white"
+        >
           History
         </Link>
 
