@@ -2,38 +2,63 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+
 import {
   collection,
   onSnapshot,
-  orderBy,
   query,
+  orderBy,
+  getDoc,
+  doc,
 } from "firebase/firestore";
+
 import { db } from "../../firebase";
 
 export default function HistoryPage() {
   const [histories, setHistories] = useState<any[]>([]);
 
   useEffect(() => {
+    initialize();
+  }, []);
+
+  const initialize = async () => {
+    const myId =
+      localStorage.getItem("userId");
+
+    if (!myId) return;
+
     const q = query(
       collection(db, "history"),
       orderBy("createdAt", "desc")
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    onSnapshot(q, async (snapshot) => {
       const list: any[] = [];
 
-      snapshot.forEach((doc) => {
+      for (const item of snapshot.docs) {
+        const data = item.data();
+
+        if (!data.users.includes(myId)) continue;
+
+        const targetId = data.users.find(
+          (id: string) => id !== myId
+        );
+
+        const targetSnap = await getDoc(
+          doc(db, "users", targetId)
+        );
+
+        if (!targetSnap.exists()) continue;
+
         list.push({
-          id: doc.id,
-          ...doc.data(),
+          id: item.id,
+          ...targetSnap.data(),
         });
-      });
+      }
 
       setHistories(list);
     });
-
-    return () => unsubscribe();
-  }, []);
+  };
 
   return (
     <div className="min-h-screen bg-black text-white pb-24">
@@ -45,16 +70,16 @@ export default function HistoryPage() {
 
         <div className="space-y-4">
 
-          {histories.map((item) => (
+          {histories.map((user) => (
             <div
-              key={item.id}
+              key={user.id}
               className="bg-zinc-900 rounded-3xl p-4 shadow-xl"
             >
               <div className="flex items-center gap-4">
 
-                {item.targetData?.icon && (
+                {user.icon && (
                   <img
-                    src={item.targetData.icon}
+                    src={user.icon}
                     alt="icon"
                     className="w-16 h-16 rounded-full border-2 border-cyan-400"
                   />
@@ -63,11 +88,11 @@ export default function HistoryPage() {
                 <div>
 
                   <div className="text-xl font-bold">
-                    {item.targetData?.name}
+                    {user.name}
                   </div>
 
                   <div className="text-zinc-400 text-sm whitespace-pre-wrap">
-                    {item.targetData?.bio}
+                    {user.bio}
                   </div>
 
                 </div>

@@ -4,23 +4,43 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { QRCodeCanvas } from "qrcode.react";
 import { Html5QrcodeScanner } from "html5-qrcode";
+
 import {
   doc,
   getDoc,
   setDoc,
-  collection,
-  addDoc,
 } from "firebase/firestore";
+
 import { db } from "../../firebase";
 
 export default function ScanPage() {
+  const [userId, setUserId] = useState("");
   const [myProfile, setMyProfile] = useState<any>(null);
 
-  const userId = "demo-user";
-
   useEffect(() => {
-    loadProfile();
+    initializeUser();
+  }, []);
 
+  const initializeUser = async () => {
+    const savedUserId =
+      localStorage.getItem("userId");
+
+    if (!savedUserId) return;
+
+    setUserId(savedUserId);
+
+    const snap = await getDoc(
+      doc(db, "users", savedUserId)
+    );
+
+    if (snap.exists()) {
+      setMyProfile(snap.data());
+    }
+
+    startScanner(savedUserId);
+  };
+
+  const startScanner = (myId: string) => {
     const scanner = new Html5QrcodeScanner(
       "reader",
       {
@@ -32,38 +52,52 @@ export default function ScanPage() {
 
     scanner.render(
       async (decodedText) => {
-        await saveHistory(decodedText);
-        alert("交換しました");
+        await exchangeProfile(myId, decodedText);
       },
       () => {}
     );
-
-    return () => {
-      scanner.clear().catch(() => {});
-    };
-  }, []);
-
-  const loadProfile = async () => {
-    const snap = await getDoc(doc(db, "users", userId));
-
-    if (snap.exists()) {
-      setMyProfile(snap.data());
-    }
   };
 
-  const saveHistory = async (targetId: string) => {
-    const targetSnap = await getDoc(doc(db, "users", targetId));
+  const exchangeProfile = async (
+    myId: string,
+    targetId: string
+  ) => {
+    if (myId === targetId) {
+      alert("自分自身とは交換できません");
+      return;
+    }
 
-    if (!targetSnap.exists()) return;
+    const historyId =
+      [myId, targetId].sort().join("_");
 
-    const targetData = targetSnap.data();
+    const historyRef = doc(
+      db,
+      "history",
+      historyId
+    );
 
-    await addDoc(collection(db, "history"), {
-      ownerId: userId,
-      targetId,
-      targetData,
+    const historySnap = await getDoc(historyRef);
+
+    if (historySnap.exists()) {
+      alert("すでに交換済みです");
+      return;
+    }
+
+    const targetSnap = await getDoc(
+      doc(db, "users", targetId)
+    );
+
+    if (!targetSnap.exists()) {
+      alert("ユーザーが存在しません");
+      return;
+    }
+
+    await setDoc(historyRef, {
+      users: [myId, targetId],
       createdAt: Date.now(),
     });
+
+    alert("交換しました");
   };
 
   return (
@@ -82,11 +116,11 @@ export default function ScanPage() {
               <img
                 src={myProfile.icon}
                 alt="icon"
-                className="w-24 h-24 rounded-full mb-4 border-4 border-cyan-400"
+                className="w-24 h-24 rounded-full border-4 border-cyan-400 mb-4"
               />
             )}
 
-            <div className="text-2xl font-bold mb-2">
+            <div className="text-2xl font-bold">
               {myProfile?.name}
             </div>
 
@@ -95,10 +129,14 @@ export default function ScanPage() {
             </div>
 
             <div className="bg-white p-4 rounded-2xl">
-              <QRCodeCanvas value={userId} size={220} />
+              <QRCodeCanvas
+                value={userId}
+                size={220}
+              />
             </div>
 
           </div>
+
         </div>
 
         <div className="bg-zinc-900 rounded-3xl p-6 shadow-xl">

@@ -1,25 +1,36 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { db } from "../../firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
 import Link from "next/link";
+import { db } from "../../firebase";
+import {
+  doc,
+  getDoc,
+  setDoc,
+} from "firebase/firestore";
 
 export default function ProfilePage() {
+  const [userId, setUserId] = useState("");
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
   const [xUrl, setXUrl] = useState("");
   const [icon, setIcon] = useState("");
 
-  const userId = "demo-user";
-
   useEffect(() => {
-    loadProfile();
+    initializeUser();
   }, []);
 
-  const loadProfile = async () => {
-    const ref = doc(db, "users", userId);
-    const snap = await getDoc(ref);
+  const initializeUser = async () => {
+    let savedUserId = localStorage.getItem("userId");
+
+    if (!savedUserId) {
+      savedUserId = crypto.randomUUID();
+      localStorage.setItem("userId", savedUserId);
+    }
+
+    setUserId(savedUserId);
+
+    const snap = await getDoc(doc(db, "users", savedUserId));
 
     if (snap.exists()) {
       const data = snap.data();
@@ -34,7 +45,9 @@ export default function ProfilePage() {
   const handleXUrlChange = (value: string) => {
     setXUrl(value);
 
-    const username = value.split("x.com/")[1]?.replace("/", "");
+    const username = value
+      .split("x.com/")[1]
+      ?.replace("/", "");
 
     if (username) {
       setIcon(`https://unavatar.io/x/${username}`);
@@ -42,11 +55,14 @@ export default function ProfilePage() {
   };
 
   const saveProfile = async () => {
+    if (!userId) return;
+
     await setDoc(doc(db, "users", userId), {
       name,
       bio,
       xUrl,
       icon,
+      updatedAt: Date.now(),
     });
 
     alert("保存しました");
