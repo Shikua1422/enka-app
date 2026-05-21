@@ -32,19 +32,50 @@ export default function ScanPage() {
 
     const init = async () => {
 
-      const savedUserId =
+      let savedUserId =
         localStorage.getItem("userId");
 
-      if (!savedUserId) return;
+      // 初回ユーザー生成
+      if (!savedUserId) {
+
+        savedUserId =
+          crypto.randomUUID();
+
+        localStorage.setItem(
+          "userId",
+          savedUserId
+        );
+      }
 
       setUserId(savedUserId);
 
-      const snap = await getDoc(
-        doc(db, "users", savedUserId)
-      );
+      const userRef =
+        doc(db, "users", savedUserId);
 
-      if (snap.exists()) {
-        setMyProfile(snap.data());
+      const userSnap =
+        await getDoc(userRef);
+
+      // 初回プロフィール生成
+      if (!userSnap.exists()) {
+
+        await setDoc(userRef, {
+          name: "NO NAME",
+          bio: "",
+          icon:
+            "https://placehold.jp/150x150.png",
+          updatedAt: Date.now(),
+        });
+
+        setMyProfile({
+          name: "NO NAME",
+          bio: "",
+          icon:
+            "https://placehold.jp/150x150.png",
+        });
+
+      } else {
+
+        setMyProfile(userSnap.data());
       }
 
       startScanner(savedUserId);
@@ -60,7 +91,6 @@ export default function ScanPage() {
 
   const startScanner = (myId: string) => {
 
-    // 二重起動防止
     if (scannerRef.current) return;
 
     const scanner =
@@ -82,7 +112,6 @@ export default function ScanPage() {
 
       async (decodedText) => {
 
-        // 処理中なら無視
         if (processingRef.current) {
           return;
         }
@@ -97,13 +126,11 @@ export default function ScanPage() {
               decodedText
             );
 
-          // 成功時のみ履歴へ
+          // 成功
           if (result === "success") {
 
-            // カメラ停止
             await scanner.clear();
 
-            // 少し待ってから遷移
             setTimeout(() => {
               router.push("/history");
             }, 300);
@@ -113,22 +140,26 @@ export default function ScanPage() {
 
           // 既交換
           if (result === "already") {
-            alert("このユーザーとは交換済みです");
+            alert(
+              "このユーザーとは交換済みです"
+            );
           }
 
           // 自分
           if (result === "self") {
-            alert("自分自身は交換できません");
+            alert(
+              "自分自身は交換できません"
+            );
           }
 
         } catch (e) {
           console.error(e);
         }
 
-        // 連打防止
+        // 連続通知防止
         setTimeout(() => {
           processingRef.current = false;
-        }, 1500);
+        }, 2000);
 
       },
 
@@ -146,41 +177,56 @@ export default function ScanPage() {
       return "self";
     }
 
-    // 組み合わせ固定
-    const historyId =
+    // 固定ペアキー
+    const pairKey =
       [myId, targetId]
         .sort()
         .join("_");
 
-    const historyRef = doc(
-      db,
-      "history",
-      historyId
-    );
+    // 交換済み確認
+    const pairRef =
+      doc(db, "pairs", pairKey);
 
-    const historySnap =
-      await getDoc(historyRef);
+    const pairSnap =
+      await getDoc(pairRef);
 
-    // 既交換
-    if (historySnap.exists()) {
+    if (pairSnap.exists()) {
       return "already";
     }
 
     // 相手存在確認
+    const targetRef =
+      doc(db, "users", targetId);
+
     const targetSnap =
-      await getDoc(
-        doc(db, "users", targetId)
-      );
+      await getDoc(targetRef);
 
     if (!targetSnap.exists()) {
       return "notfound";
     }
 
-    // 保存
-    await setDoc(historyRef, {
-      users: [myId, targetId],
-      createdAt: Date.now(),
-    });
+    // 履歴ID（毎回ユニーク）
+    const historyId =
+      `${pairKey}_${Date.now()}`;
+
+    // 履歴保存
+    await setDoc(
+      doc(db, "history", historyId),
+      {
+        users: [myId, targetId],
+        pairKey,
+        createdAt: Date.now(),
+      }
+    );
+
+    // ペア保存
+    await setDoc(
+      pairRef,
+      {
+        users: [myId, targetId],
+        createdAt: Date.now(),
+      }
+    );
 
     return "success";
   };
@@ -194,21 +240,22 @@ export default function ScanPage() {
           Scan
         </h1>
 
-        {/* PROFILE CARD */}
+        {/* PROFILE */}
         <div className="bg-zinc-900 rounded-3xl p-6 shadow-xl mb-6">
 
           <div className="flex flex-col items-center">
 
-            {myProfile?.icon && (
-              <img
-                src={myProfile.icon}
-                alt="icon"
-                className="w-24 h-24 rounded-full border-4 border-cyan-400 mb-4 object-cover"
-              />
-            )}
+            <img
+              src={
+                myProfile?.icon ||
+                "https://placehold.jp/150x150.png"
+              }
+              alt="icon"
+              className="w-24 h-24 rounded-full border-4 border-cyan-400 mb-4 object-cover"
+            />
 
             <div className="text-2xl font-bold mb-2">
-              {myProfile?.name || "NO NAME"}
+              {myProfile?.name}
             </div>
 
             <div className="text-zinc-400 text-center whitespace-pre-wrap mb-6">
@@ -226,7 +273,7 @@ export default function ScanPage() {
 
         </div>
 
-        {/* SCANNER */}
+        {/* QR */}
         <div className="bg-zinc-900 rounded-3xl p-6 shadow-xl">
 
           <h2 className="text-xl font-bold mb-4">
