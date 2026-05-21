@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   doc,
@@ -10,7 +10,7 @@ import {
 
 import { db } from "../../firebase";
 
-import { QrReader } from "react-qr-reader";
+import { Html5Qrcode } from "html5-qrcode";
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -18,94 +18,130 @@ import Link from "next/link";
 export default function ScanPage() {
   const router = useRouter();
 
+  const scannerRef =
+    useRef<Html5Qrcode | null>(null);
+
   const [uid, setUid] = useState("");
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] =
+    useState(false);
 
   useEffect(() => {
-    const userUid = localStorage.getItem("uid");
+    const myUid = localStorage.getItem("uid");
 
-    if (!userUid) return;
+    if (!myUid) return;
 
-    setUid(userUid);
+    setUid(myUid);
+
+    const scanner =
+      new Html5Qrcode("reader");
+
+    scannerRef.current = scanner;
+
+    scanner
+      .start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: 250,
+        },
+        async (decodedText) => {
+          if (loading) return;
+
+          if (decodedText === myUid)
+            return;
+
+          setLoading(true);
+
+          const historyId =
+            myUid + "_" + decodedText;
+
+          const historyRef = doc(
+            db,
+            "histories",
+            historyId
+          );
+
+          const historySnap =
+            await getDoc(historyRef);
+
+          if (historySnap.exists()) {
+            setLoading(false);
+            return;
+          }
+
+          const userRef = doc(
+            db,
+            "users",
+            decodedText
+          );
+
+          const userSnap =
+            await getDoc(userRef);
+
+          if (!userSnap.exists()) {
+            setLoading(false);
+            return;
+          }
+
+          const data = userSnap.data();
+
+          await setDoc(historyRef, {
+            ownerUid: myUid,
+            targetUid: decodedText,
+            xId: data.xId,
+            bio: data.bio,
+            iconUrl: data.iconUrl,
+            createdAt: Date.now(),
+          });
+
+          if (scanner.isScanning) {
+            await scanner.stop();
+          }
+
+          router.push("/history");
+        }
+      )
+      .catch(console.error);
+
+    return () => {
+      if (scanner.isScanning) {
+        scanner.stop().catch(() => {});
+      }
+    };
   }, []);
-
-  const onScan = async (targetUid: string) => {
-    if (!targetUid) return;
-
-    if (loading) return;
-
-    if (targetUid === uid) return;
-
-    setLoading(true);
-
-    const historyId = `${uid}_${targetUid}`;
-
-    const historyRef = doc(
-      db,
-      "histories",
-      historyId
-    );
-
-    const historySnap = await getDoc(historyRef);
-
-    if (historySnap.exists()) {
-      setLoading(false);
-      return;
-    }
-
-    const userRef = doc(db, "users", targetUid);
-
-    const userSnap = await getDoc(userRef);
-
-    if (!userSnap.exists()) {
-      setLoading(false);
-      return;
-    }
-
-    const data = userSnap.data();
-
-    await setDoc(historyRef, {
-      ownerUid: uid,
-      targetUid,
-      xId: data.xId,
-      bio: data.bio,
-      iconUrl: data.iconUrl,
-      createdAt: Date.now(),
-    });
-
-    router.push("/history");
-  };
 
   return (
     <main style={mainStyle}>
       <div style={cardStyle}>
-        <h1 style={{ color: "white" }}>
+        <h1
+          style={{
+            color: "white",
+            fontSize: 28,
+            marginBottom: 20,
+          }}
+        >
           QR Scan
         </h1>
 
         <div
+          id="reader"
           style={{
+            width: "100%",
             overflow: "hidden",
             borderRadius: 20,
-            width: "100%",
-            marginTop: 20,
+          }}
+        />
+
+        <p
+          style={{
+            color: "#cbd5e1",
+            marginTop: 16,
+            textAlign: "center" as const,
           }}
         >
-          <QrReader
-            constraints={{
-              facingMode: "environment",
-            }}
-            onResult={(result) => {
-              if (!result) return;
-
-              onScan(result.getText());
-            }}
-            style={{
-              width: "100%",
-            }}
-          />
-        </div>
+          QRコードを読み込んで交換
+        </p>
       </div>
 
       <nav style={navStyle}>

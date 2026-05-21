@@ -16,21 +16,21 @@ export default function ProfilePage() {
   const [uid, setUid] = useState("");
   const [xId, setXId] = useState("");
   const [bio, setBio] = useState("");
-
   const [showQR, setShowQR] = useState(false);
 
   useEffect(() => {
-    const userUid = localStorage.getItem("uid");
+    const myUid = localStorage.getItem("uid");
 
-    if (!userUid) return;
+    if (!myUid) return;
 
-    setUid(userUid);
+    setUid(myUid);
 
-    load(userUid);
+    loadProfile(myUid);
   }, []);
 
-  const load = async (userUid: string) => {
-    const ref = doc(db, "users", userUid);
+  const loadProfile = async (myUid: string) => {
+    const ref = doc(db, "users", myUid);
+
     const snap = await getDoc(ref);
 
     if (!snap.exists()) return;
@@ -41,9 +41,12 @@ export default function ProfilePage() {
     setBio(data.bio || "");
   };
 
-  const save = async () => {
+  const saveProfile = async () => {
+    if (!uid) return;
+
     await updateDoc(doc(db, "users", uid), {
       bio,
+      iconUrl: `https://unavatar.io/x/${xId}`,
     });
 
     alert("保存しました");
@@ -54,15 +57,23 @@ export default function ProfilePage() {
       <div style={cardStyle}>
         <img
           src={`https://unavatar.io/x/${xId}`}
+          alt="icon"
           style={{
             width: 120,
             height: 120,
             borderRadius: "50%",
+            objectFit: "cover",
             marginBottom: 16,
           }}
         />
 
-        <h1 style={{ color: "white" }}>
+        <h1
+          style={{
+            color: "white",
+            fontSize: 28,
+            marginBottom: 20,
+          }}
+        >
           @{xId}
         </h1>
 
@@ -72,17 +83,17 @@ export default function ProfilePage() {
           placeholder="プロフィール"
           style={{
             width: "100%",
-            height: 120,
+            minHeight: 120,
             borderRadius: 12,
             border: "none",
-            padding: 12,
-            marginTop: 20,
+            padding: 14,
             fontSize: 16,
+            resize: "none",
           }}
         />
 
         <button
-          onClick={save}
+          onClick={saveProfile}
           style={buttonStyle}
         >
           保存
@@ -95,14 +106,14 @@ export default function ProfilePage() {
             background: "#8b5cf6",
           }}
         >
-          QR表示
+          {showQR ? "QRを閉じる" : "QRを表示"}
         </button>
 
         {showQR && (
           <div
             style={{
               background: "white",
-              padding: 20,
+              padding: 24,
               borderRadius: 20,
               marginTop: 20,
             }}
@@ -142,14 +153,15 @@ const cardStyle = {
 };
 
 const buttonStyle = {
-  marginTop: 16,
   width: "100%",
+  marginTop: 16,
   padding: 14,
   borderRadius: 12,
   border: "none",
   background: "#3b82f6",
   color: "white",
   fontWeight: "bold",
+  fontSize: 16,
 };
 
 const navStyle = {
