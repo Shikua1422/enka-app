@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { QRCodeCanvas } from "qrcode.react";
 import { Html5QrcodeScanner } from "html5-qrcode";
 
@@ -14,12 +15,14 @@ import {
 import { db } from "../../firebase";
 
 export default function ScanPage() {
+  const router = useRouter();
+
   const [userId, setUserId] = useState("");
   const [myProfile, setMyProfile] = useState<any>(null);
 
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const scannerRef =
+    useRef<Html5QrcodeScanner | null>(null);
 
-  // 同じQR連続読み込み防止
   const lastScannedRef = useRef("");
   const isProcessingRef = useRef(false);
 
@@ -74,7 +77,7 @@ export default function ScanPage() {
           return;
         }
 
-        // 二重実行防止
+        // 二重処理防止
         if (isProcessingRef.current) {
           return;
         }
@@ -83,15 +86,25 @@ export default function ScanPage() {
         lastScannedRef.current = decodedText;
 
         try {
-          await exchangeProfile(
-            myId,
-            decodedText
-          );
+          const success =
+            await exchangeProfile(
+              myId,
+              decodedText
+            );
+
+          // 交換成功時のみ履歴へ移動
+          if (success) {
+
+            // スキャナー停止
+            await scanner.clear();
+
+            router.push("/history");
+          }
+
         } catch (e) {
           console.error(e);
         }
 
-        // 3秒後に再読込可能
         setTimeout(() => {
           lastScannedRef.current = "";
         }, 3000);
@@ -109,10 +122,10 @@ export default function ScanPage() {
 
     // 自分禁止
     if (myId === targetId) {
-      return;
+      return false;
     }
 
-    // 2人の組み合わせ固定
+    // 同じ組み合わせ固定
     const historyId =
       [myId, targetId]
         .sort()
@@ -127,9 +140,9 @@ export default function ScanPage() {
     const historySnap =
       await getDoc(historyRef);
 
-    // 既交換なら無視
+    // 既交換
     if (historySnap.exists()) {
-      return;
+      return false;
     }
 
     const targetSnap = await getDoc(
@@ -137,7 +150,7 @@ export default function ScanPage() {
     );
 
     if (!targetSnap.exists()) {
-      return;
+      return false;
     }
 
     await setDoc(historyRef, {
@@ -145,7 +158,7 @@ export default function ScanPage() {
       createdAt: Date.now(),
     });
 
-    alert("交換しました！");
+    return true;
   };
 
   return (
@@ -196,7 +209,7 @@ export default function ScanPage() {
           <div id="reader" />
 
           <p className="text-zinc-500 text-sm mt-4">
-            同じユーザーは1回のみ交換できます
+            読み取り成功後、自動で履歴へ移動します
           </p>
 
         </div>
