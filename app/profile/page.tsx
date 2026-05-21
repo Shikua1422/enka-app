@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 import {
   doc,
   getDoc,
@@ -10,16 +11,19 @@ import {
 import { db } from "../../firebase";
 
 import QRCode from "react-qr-code";
+
 import Link from "next/link";
 
 export default function ProfilePage() {
   const [uid, setUid] = useState("");
   const [xId, setXId] = useState("");
   const [bio, setBio] = useState("");
-  const [showQR, setShowQR] = useState(false);
+  const [showQR, setShowQR] =
+    useState(false);
 
   useEffect(() => {
-    const myUid = localStorage.getItem("uid");
+    const myUid =
+      localStorage.getItem("uid");
 
     if (!myUid) return;
 
@@ -28,8 +32,14 @@ export default function ProfilePage() {
     loadProfile(myUid);
   }, []);
 
-  const loadProfile = async (myUid: string) => {
-    const ref = doc(db, "users", myUid);
+  const loadProfile = async (
+    myUid: string
+  ) => {
+    const ref = doc(
+      db,
+      "users",
+      myUid
+    );
 
     const snap = await getDoc(ref);
 
@@ -44,10 +54,13 @@ export default function ProfilePage() {
   const saveProfile = async () => {
     if (!uid) return;
 
-    await updateDoc(doc(db, "users", uid), {
-      bio,
-      iconUrl: `https://unavatar.io/x/${xId}`,
-    });
+    await updateDoc(
+      doc(db, "users", uid),
+      {
+        bio,
+        iconUrl: `https://unavatar.io/x/${xId}`,
+      }
+    );
 
     alert("保存しました");
   };
@@ -79,7 +92,9 @@ export default function ProfilePage() {
 
         <textarea
           value={bio}
-          onChange={(e) => setBio(e.target.value)}
+          onChange={(e) =>
+            setBio(e.target.value)
+          }
           placeholder="プロフィール"
           style={{
             width: "100%",
@@ -100,13 +115,17 @@ export default function ProfilePage() {
         </button>
 
         <button
-          onClick={() => setShowQR(!showQR)}
+          onClick={() =>
+            setShowQR(!showQR)
+          }
           style={{
             ...buttonStyle,
             background: "#8b5cf6",
           }}
         >
-          {showQR ? "QRを閉じる" : "QRを表示"}
+          {showQR
+            ? "QRを閉じる"
+            : "QRを表示"}
         </button>
 
         {showQR && (
@@ -127,9 +146,17 @@ export default function ProfilePage() {
       </div>
 
       <nav style={navStyle}>
-        <Link href="/profile">Profile</Link>
-        <Link href="/scan">Scan</Link>
-        <Link href="/history">History</Link>
+        <Link href="/profile">
+          Profile
+        </Link>
+
+        <Link href="/scan">
+          Scan
+        </Link>
+
+        <Link href="/history">
+          History
+        </Link>
       </nav>
     </main>
   );

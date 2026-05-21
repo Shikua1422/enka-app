@@ -21,29 +21,37 @@ export default function ScanPage() {
   const scannerRef =
     useRef<Html5Qrcode | null>(null);
 
-  const [uid, setUid] = useState("");
-
   const [loading, setLoading] =
     useState(false);
 
   useEffect(() => {
-    const myUid = localStorage.getItem("uid");
+    const startScanner = async () => {
+      const myUid =
+        localStorage.getItem("uid");
 
-    if (!myUid) return;
+      if (!myUid) return;
 
-    setUid(myUid);
+      const cameras =
+        await Html5Qrcode.getCameras();
 
-    const scanner =
-      new Html5Qrcode("reader");
+      if (!cameras.length) return;
 
-    scannerRef.current = scanner;
+      const cameraId: string =
+        cameras[0].id;
 
-    scanner
-      .start(
-        { facingMode: "environment" },
+      const scanner =
+        new Html5Qrcode("reader");
+
+      scannerRef.current = scanner;
+
+      await scanner.start(
+        cameraId as any,
         {
           fps: 10,
-          qrbox: 250,
+          qrbox: {
+            width: 250,
+            height: 250,
+          },
         },
         async (decodedText) => {
           if (loading) return;
@@ -101,12 +109,18 @@ export default function ScanPage() {
 
           router.push("/history");
         }
-      )
-      .catch(console.error);
+      );
+    };
+
+    startScanner();
 
     return () => {
-      if (scanner.isScanning) {
-        scanner.stop().catch(() => {});
+      if (
+        scannerRef.current?.isScanning
+      ) {
+        scannerRef.current
+          .stop()
+          .catch(() => {});
       }
     };
   }, []);
@@ -145,9 +159,17 @@ export default function ScanPage() {
       </div>
 
       <nav style={navStyle}>
-        <Link href="/profile">Profile</Link>
-        <Link href="/scan">Scan</Link>
-        <Link href="/history">History</Link>
+        <Link href="/profile">
+          Profile
+        </Link>
+
+        <Link href="/scan">
+          Scan
+        </Link>
+
+        <Link href="/history">
+          History
+        </Link>
       </nav>
     </main>
   );
